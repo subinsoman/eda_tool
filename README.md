@@ -19,7 +19,7 @@ A powerful CLI tool for Exploratory Data Analysis (EDA) and automated Excel repo
 You can install the package using pip:
 
 ```bash
-pip install eda_tool
+pip install subinsoman-eda-tool
 ```
 
 ## Usage
@@ -46,7 +46,6 @@ eda-tool data.csv -o my_report.xlsx -i
 
 - Python 3.8+
 - dask[complete]
-- pandas
 - numpy
 - openpyxl
 - scipy
