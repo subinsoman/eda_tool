@@ -30,4 +30,11 @@ def parse_args():
         help="Save intermediate metrics to 'metrics.json'. Default is False."
     )
 
+    parser.add_argument(
+        "--dask-args",
+        type=str,
+        default=None,
+        help="Optional JSON string of arguments to pass to dask.dataframe.read_csv (e.g., '{\"sep\": \";\"}')."
+    )
+
     return parser.parse_args()

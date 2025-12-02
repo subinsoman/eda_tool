@@ -1,3 +1,12 @@
+import warnings
+
+# Suppress specific RuntimeWarning from Dask/NumPy
+warnings.filterwarnings("ignore", message="invalid value encountered in scalar divide", category=RuntimeWarning)
+# Suppress Dask/Pandas FutureWarnings
+warnings.filterwarnings("ignore", message="pandas.Int64Index is deprecated", category=FutureWarning)
+warnings.filterwarnings("ignore", message="pandas.Float64Index is deprecated", category=FutureWarning)
+warnings.filterwarnings("ignore", message="pandas.UInt64Index is deprecated", category=FutureWarning)
+
 import dask.dataframe as dd
 import numpy as np
 from openpyxl import Workbook
@@ -16,21 +25,25 @@ import argparse
 from cli_utils import parse_args
 from pathlib import Path
 import sys
-import warnings
 import json
-
-# Suppress specific RuntimeWarning from Dask/NumPy
-warnings.filterwarnings("ignore", message="invalid value encountered in scalar divide", category=RuntimeWarning)
 
 class DataLoader:
     """Responsible for loading data."""
-    def __init__(self, input_path: Path):
+    def __init__(self, input_path: Path, dask_args: dict = None):
         self.input_path = input_path
+        self.dask_args = dask_args or {}
 
     def load_data(self) -> dd.DataFrame:
         print(f"Reading data from: {self.input_path}")
-        # Assuming CSV format as per original code
-        return dd.read_csv(str(self.input_path), dtype={'Cabin': 'object'})
+        # Merge default dtype with user-provided args if needed, or just pass kwargs
+        # Ensure 'dtype' for Cabin is preserved if not overridden, or just let user override
+        default_args = {'dtype': {'Cabin': 'object'}}
+        
+        # Merge defaults with user args (user args take precedence)
+        final_args = default_args.copy()
+        final_args.update(self.dask_args)
+        
+        return dd.read_csv(str(self.input_path), **final_args)
 
 class MetricsCalculator:
     """Responsible for calculating column metrics."""
@@ -854,7 +867,16 @@ class EDAOrchestrator:
         print(f"Started execution at: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
         # 1. Load Data
-        loader = DataLoader(Path(self.args.input_file))
+        dask_args = {}
+        if self.args.dask_args:
+            try:
+                dask_args = json.loads(self.args.dask_args)
+                print(f"Using custom Dask arguments: {dask_args}")
+            except json.JSONDecodeError as e:
+                print(f"Error parsing --dask-args: {e}")
+                sys.exit(1)
+
+        loader = DataLoader(Path(self.args.input_file), dask_args=dask_args)
         ddf = loader.load_data()
         
         # 2. Calculate Metrics
@@ -876,6 +898,8 @@ class EDAOrchestrator:
         # 4. Generate Report
         if self.args.output_file:
             output_filename = self.args.output_file
+            if not output_filename.lower().endswith('.xlsx'):
+                output_filename += '.xlsx'
         else:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_filename = f"{Path(self.args.input_file).stem}_metrics_report_{timestamp}.xlsx"
